@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมคำนวณสัดส่วนและต้นทุน</title>
+    <!-- โหลด Supabase Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --background-color: #f4f7f6;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --readonly-bg: #e9ecef;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* --- Navigation Tabs --- */
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 18px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* --- Cards & Layout --- */
+        .card {
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 25px;
+            padding: 25px;
+            border: 1px solid var(--border-color);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .form-group input[type="radio"] {
+            margin-right: 8px;
+            accent-color: var(--primary-color);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+        }
+        
+        .form-group input[type="number"], .form-group input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-group input[type="number"]:focus, .form-group input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+
+        .form-group input[readonly] {
+            background-color: var(--readonly-bg);
+            cursor: not-allowed;
+        }
+        
+        .unit {
+            margin-left: 10px;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+
+        .result-field {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: var(--success-color);
+        }
+        
+        /* --- Buttons --- */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            grid-column: 1 / -1;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            flex: 1 1 180px;
+            text-align: center;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-calculate {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-calculate:hover {
+            background-color: #3a7ac8;
+        }
+
+        .btn-save {
+            background-color: var(--success-color);
+            color: white;
+        }
+        .btn-save:hover {
+            background-color: #218838;
+        }
+
+        .btn-reset {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        .btn-reset:hover {
+            background-color: #c82333;
+        }
+
+        /* --- History Table --- */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .status-msg {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>เครื่องมือคำนวณสัดส่วนและต้นทุน 📈</h1>
+
+        <!-- แถบเลือกหน้าเมนู (Single Page Application) -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('calcTab')">คำนวณต้นทุน</button>
+            <button class="tab-btn" onclick="switchTab('historyTab')">ประวัติบันทึกข้อมูล</button>
+        </nav>
+
+        <!-- แท็บที่ 1: หน้าจอคำนวณ -->
+        <div id="calcTab" class="tab-content active">
+            <div class="card">
+                <h2>1. คำนวณสัดส่วนวัตถุดิบ</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label><input type="radio" name="driver" value="A" checked> ซีอิ๊ว</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="inputA">
+                            <span class="unit">มิลลิลิตร</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="radio" name="driver" value="B"> น้ำตาล</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="inputB">
+                            <span class="unit">กรัม</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="radio" name="driver" value="C"> เหล้า</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="inputC">
+                            <span class="unit">มิลลิลิตร</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="radio" name="driver" value="D"> น้ำเปล่า</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="inputD">
+                            <span class="unit">มิลลิลิตร</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="radio" name="driver" value="E"> ผงชูรส</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="inputE">
+                            <span class="unit">กรัม</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ผลลัพธ์ F (A+C+D)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="resultF" readonly>
+                            <span class="unit">มิลลิลิตร</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>2. คำนวณราคาต้นทุนวัตถุดิบ</h2>
+                <div class="form-grid">
+                    <div class="form-group"><label>ราคาซีอิ๊ว</label><div class="input-wrapper"><input type="number" id="basePriceA"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาน้ำตาล</label><div class="input-wrapper"><input type="number" id="basePriceB"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาเหล้า</label><div class="input-wrapper"><input type="number" id="basePriceC"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาน้ำเปล่า</label><div class="input-wrapper"><input type="number" id="basePriceD"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาผงชูรส</label><div class="input-wrapper"><input type="number" id="basePriceE"><span class="unit">บาท</span></div></div>
+                    
+                    <div class="form-group"><label>ปริมาตรต่อขวด ซีอิ๊ว</label><div class="input-wrapper"><input type="number" id="unitVolumeA"><span class="unit">มล.</span></div></div>
+                    <div class="form-group"><label>ปริมาตรต่อถุง น้ำตาล</label><div class="input-wrapper"><input type="number" id="unitVolumeB"><span class="unit">กรัม</span></div></div>
+                    <div class="form-group"><label>ปริมาตรต่อขวด เหล้า</label><div class="input-wrapper"><input type="number" id="unitVolumeC"><span class="unit">มล.</span></div></div>
+                    <div class="form-group"><label>ปริมาตรต่อขวด น้ำเปล่า</label><div class="input-wrapper"><input type="number" id="unitVolumeD"><span class="unit">มล.</span></div></div>
+                    <div class="form-group"><label>ปริมาตรต่อถุง ผงชูรส</label><div class="input-wrapper"><input type="number" id="unitVolumeE"><span class="unit">กรัม</span></div></div>
+
+                    <div class="form-group"><label>ราคาต่อหน่วย ซีอิ๊ว</label><div class="input-wrapper"><input type="number" id="costPerUnitA" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาต่อหน่วย น้ำตาล</label><div class="input-wrapper"><input type="number" id="costPerUnitB" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาต่อหน่วย เหล้า</label><div class="input-wrapper"><input type="number" id="costPerUnitC" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาต่อหน่วย น้ำเปล่า</label><div class="input-wrapper"><input type="number" id="costPerUnitD" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาต่อหน่วย ผงชูรส</label><div class="input-wrapper"><input type="number" id="costPerUnitE" readonly><span class="unit">บาท</span></div></div>
+                    
+                    <div class="form-group full-width">
+                        <label>ต้นทุน/ml</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="costPerMl" class="result-field" readonly>
+                            <span class="unit">บาท</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>3. คำนวณราคาต้นทุนรวมและราคาขาย</h2>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label>ชื่อสูตร / บันทึกความจำ (สำหรับเก็บข้อมูล)</label>
+                        <input type="text" id="recipeName" placeholder="เช่น สูตรมาตรฐาน หรือ Batch 01">
+                    </div>
+                    <div class="form-group"><label>ปริมาตรขาย</label><div class="input-wrapper"><input type="number" id="sellVolume"><span class="unit">มล.</span></div></div>
+                    <div class="form-group"><label>ต้นทุนต่อปริมาตร</label><div class="input-wrapper"><input type="number" id="costPerVolume" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ค่าภาชนะบรรจุ</label><div class="input-wrapper"><input type="number" id="containerCost"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ค่าภาชนะกล่อง</label><div class="input-wrapper"><input type="number" id="boxCost"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ค่าฉลากข้างขวด</label><div class="input-wrapper"><input type="number" id="labelCost"><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ราคาตั้งขาย (x2)</label><div class="input-wrapper"><input type="number" id="sellingPrice" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>Shopee Fee</label><div class="input-wrapper"><input type="number" id="shopeeFeePercent"><span class="unit">%</span></div></div>
+                    <div class="form-group"><label>Shopee Fee (บาท)</label><div class="input-wrapper"><input type="number" id="shopeeFeeBaht" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group"><label>ต้นทุนรวมทั้งหมด</label><div class="input-wrapper"><input type="number" id="totalCost" readonly><span class="unit">บาท</span></div></div>
+                    <div class="form-group">
+                        <label>กำไรคงเหลือ</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="netProfit" class="result-field" readonly>
+                            <span class="unit">บาท</span>
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button id="calculateBtn" class="btn btn-calculate">คำนวณ</button>
+                        <button id="saveBtn" class="btn btn-save">💾 บันทึกผลลง Supabase</button>
+                        <button id="resetBtn" class="btn btn-reset">ล้างค่า</button>
+                    </div>
+                </div>
+                <div id="saveStatus" class="status-msg"></div>
+            </div>
+        </div>
+
+        <!-- แท็บที่ 2: หน้าจอแสดงประวัติ -->
+        <div id="historyTab" class="tab-content">
+            <div class="card">
+                <h2>ประวัติการบันทึกต้นทุน</h2>
+                <button class="btn btn-calculate" style="max-width: 200px; margin-bottom: 15px;" onclick="loadHistory()">🔄 โหลดข้อมูลใหม่</button>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>วันที่</th>
+                                <th>ชื่อสูตร</th>
+                                <th>ปริมาตรขาย (มล.)</th>
+                                <th>ต้นทุนรวม (บาท)</th>
+                                <th>ราคาตั้งขาย (บาท)</th>
+                                <th>กำไรคงเหลือ (บาท)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: #888;">ยังไม่มีข้อมูลหรือกำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ==========================================
+    // 1. ตั้งค่าการเชื่อมต่อ Supabase
+    // นำค่ามาจาก Project Settings -> API ของ Supabase
+    // ==========================================
+    const SUPABASE_URL = "https://cbdqxxsvnxklmoaesgec.supabase.co/rest/v1/";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiZHF4eHN2bnhrbG1vYWVzZ2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2ODA3NDMsImV4cCI6MjEwODI1Njc0M30.TiR4pL-w3pe4ay0yaTktq1nu2EuYqLvFoUSNk5Ye6BY";
+    
+    let supabaseClient = null;
+    if (SUPABASE_URL !== "YOUR_SUPABASE_URL_HERE" && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY_HERE") {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+
+    // สลับแท็บหน้าเมนู
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        if (tabId === 'calcTab') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('calcTab').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('historyTab').classList.add('active');
+            loadHistory();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = {
+            recipeName: document.getElementById('recipeName'),
+            A: document.getElementById('inputA'),
+            B: document.getElementById('inputB'),
+            C: document.getElementById('inputC'),
+            D: document.getElementById('inputD'),
+            E: document.getElementById('inputE'),
+            F: document.getElementById('resultF'),
+
+            basePriceA: document.getElementById('basePriceA'),
+            basePriceB: document.getElementById('basePriceB'),
+            basePriceC: document.getElementById('basePriceC'),
+            basePriceD: document.getElementById('basePriceD'),
+            basePriceE: document.getElementById('basePriceE'),
+
+            unitVolumeA: document.getElementById('unitVolumeA'),
+            unitVolumeB: document.getElementById('unitVolumeB'),
+            unitVolumeC: document.getElementById('unitVolumeC'),
+            unitVolumeD: document.getElementById('unitVolumeD'),
+            unitVolumeE: document.getElementById('unitVolumeE'),
+            
+            costPerUnitA: document.getElementById('costPerUnitA'),
+            costPerUnitB: document.getElementById('costPerUnitB'),
+            costPerUnitC: document.getElementById('costPerUnitC'),
+            costPerUnitD: document.getElementById('costPerUnitD'),
+            costPerUnitE: document.getElementById('costPerUnitE'),
+            costPerMl: document.getElementById('costPerMl'),
+
+            sellVolume: document.getElementById('sellVolume'),
+            costPerVolume: document.getElementById('costPerVolume'),
+            containerCost: document.getElementById('containerCost'),
+            boxCost: document.getElementById('boxCost'),
+            labelCost: document.getElementById('labelCost'),
+            sellingPrice: document.getElementById('sellingPrice'),
+            shopeeFeePercent: document.getElementById('shopeeFeePercent'),
+            shopeeFeeBaht: document.getElementById('shopeeFeeBaht'),
+            totalCost: document.getElementById('totalCost'),
+            netProfit: document.getElementById('netProfit'),
+        };
+
+        const calculateBtn = document.getElementById('calculateBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const driverRadios = document.querySelectorAll('input[name="driver"]');
+        const saveStatus = document.getElementById('saveStatus');
+
+        const ratios = {
+            A: 0.4545, B: 0.3636, C: 0.0909, D: 0.4545, E: 0.0076
+        };
+
+        const toNum = (element) => parseFloat(element.value) || 0;
+        const format = (num) => num.toFixed(2);
+
+        function setDefaultValues() {
+            inputs.recipeName.value = "สูตรมาตรฐาน";
+            inputs.A.value = 1000;
+            
+            inputs.basePriceA.value = 68;
+            inputs.basePriceB.value = 34;
+            inputs.basePriceC.value = 140;
+            inputs.basePriceD.value = 1;
+            inputs.basePriceE.value = 59;
+
+            inputs.unitVolumeA.value = 1000;
+            inputs.unitVolumeB.value = 1000;
+            inputs.unitVolumeC.value = 1000;
+            inputs.unitVolumeD.value = 1000;
+            inputs.unitVolumeE.value = 500;
+
+            inputs.sellVolume.value = 300;
+            inputs.containerCost.value = 2.4;
+            inputs.boxCost.value = 4;
+            inputs.labelCost.value = 1;
+            inputs.shopeeFeePercent.value = 20;
+
+            toggleDriverInputs();
+            calculateAll();
+        }
+        
+        function resetAll() {
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.value = '0';
+            });
+            inputs.recipeName.value = '';
+            saveStatus.innerText = '';
+        }
+
+        function calculateAll() {
+            const driver = document.querySelector('input[name="driver"]:checked').value;
+            const driverValue = toNum(inputs[driver]);
+            const totalVolRatioBase = ratios[driver] ? driverValue / ratios[driver] : 0;
+
+            const values = {};
+            values.A = totalVolRatioBase * ratios.A;
+            values.B = totalVolRatioBase * ratios.B;
+            values.C = totalVolRatioBase * ratios.C;
+            values.D = totalVolRatioBase * ratios.D;
+            values.E = totalVolRatioBase * ratios.E;
+            values.F = values.A + values.C + values.D;
+
+            Object.keys(values).forEach(key => {
+                if(inputs[key]) inputs[key].value = format(values[key]);
+            });
+
+            const costPerUnit = {};
+            const unitVolA = toNum(inputs.unitVolumeA);
+            const unitVolB = toNum(inputs.unitVolumeB);
+            const unitVolC = toNum(inputs.unitVolumeC);
+            const unitVolD = toNum(inputs.unitVolumeD);
+            const unitVolE = toNum(inputs.unitVolumeE);
+
+            costPerUnit.A = unitVolA ? (toNum(inputs.basePriceA) / unitVolA) * values.A : 0;
+            costPerUnit.B = unitVolB ? (toNum(inputs.basePriceB) / unitVolB) * values.B : 0;
+            costPerUnit.C = unitVolC ? (toNum(inputs.basePriceC) / unitVolC) * values.C : 0;
+            costPerUnit.D = unitVolD ? (toNum(inputs.basePriceD) / unitVolD) * values.D : 0;
+            costPerUnit.E = unitVolE ? (toNum(inputs.basePriceE) / unitVolE) * values.E : 0;
+            
+            Object.keys(costPerUnit).forEach(key => {
+                 if(inputs[`costPerUnit${key}`]) inputs[`costPerUnit${key}`].value = format(costPerUnit[key]);
+            });
+
+            const totalMaterialCost = Object.values(costPerUnit).reduce((sum, cost) => sum + cost, 0);
+            const costPerMl = values.F > 0 ? totalMaterialCost / values.F : 0;
+            inputs.costPerMl.value = format(costPerMl);
+
+            const sellVolume = toNum(inputs.sellVolume);
+            const costPerVolume = sellVolume * costPerMl;
+            inputs.costPerVolume.value = format(costPerVolume);
+
+            const packagingCost = toNum(inputs.containerCost) + toNum(inputs.boxCost) + toNum(inputs.labelCost);
+            const baseCostForSelling = costPerVolume + packagingCost;
+
+            const sellingPrice = baseCostForSelling * 2;
+            inputs.sellingPrice.value = format(sellingPrice);
+            
+            const shopeeFeePercent = toNum(inputs.shopeeFeePercent) / 100;
+            const shopeeFeeBaht = sellingPrice * shopeeFeePercent;
+            inputs.shopeeFeeBaht.value = format(shopeeFeeBaht);
+            
+            const totalCost = baseCostForSelling + shopeeFeeBaht;
+            inputs.totalCost.value = format(totalCost);
+            
+            const netProfit = sellingPrice - totalCost;
+            inputs.netProfit.value = format(netProfit);
+        }
+
+        function toggleDriverInputs() {
+            const selectedDriver = document.querySelector('input[name="driver"]:checked').value;
+            ['A', 'B', 'C', 'D', 'E'].forEach(key => {
+                inputs[key].readOnly = (key !== selectedDriver);
+            });
+        }
+
+        // บันทึกผลลง Supabase
+        async function saveToSupabase() {
+            if (!supabaseClient) {
+                alert("กรุณาใส่ค่า SUPABASE_URL และ SUPABASE_ANON_KEY ในโค้ดก่อนใช้งาน");
+                return;
+            }
+
+            calculateAll();
+            saveStatus.innerText = "กำลังบันทึกข้อมูล...";
+
+            const record = {
+                recipe_name: inputs.recipeName.value || "ไม่ได้ระบุชื่อ",
+                sell_volume: toNum(inputs.sellVolume),
+                cost_per_ml: toNum(inputs.costPerMl),
+                total_cost: toNum(inputs.totalCost),
+                selling_price: toNum(inputs.sellingPrice),
+                net_profit: toNum(inputs.netProfit)
+            };
+
+            const { data, error } = await supabaseClient
+                .from('cost_records')
+                .insert([record]);
+
+            if (error) {
+                saveStatus.innerText = "❌ บันทึกไม่สำเร็จ: " + error.message;
+            } else {
+                saveStatus.innerText = "✅ บันทึกข้อมูลสำเร็จเรียบร้อย!";
+                setTimeout(() => { saveStatus.innerText = ""; }, 4000);
+            }
+        }
+
+        calculateBtn.addEventListener('click', calculateAll);
+        saveBtn.addEventListener('click', saveToSupabase);
+        resetBtn.addEventListener('click', resetAll);
+        driverRadios.forEach(radio => radio.addEventListener('change', toggleDriverInputs));
+
+        setDefaultValues();
+    });
+
+    // ดึงประวัติย้อนหลังจาก Supabase
+    async function loadHistory() {
+        const tbody = document.getElementById('historyTableBody');
+        if (!supabaseClient) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">กรุณาใส่ Supabase URL และ Key ในโค้ด</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">กำลังโหลดข้อมูล...</td></tr>';
+
+        const { data, error } = await supabaseClient
+            .from('cost_records')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">เกิดข้อผิดพลาด: ${error.message}</td></tr>`;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">ยังไม่มีประวัติการบันทึก</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(item => {
+            const dateStr = item.created_at ? new Date(item.created_at).toLocaleString('th-TH') : '-';
+            return `
+                <tr>
+                    <td>${dateStr}</td>
+                    <td><strong>${item.recipe_name || '-'}</strong></td>
+                    <td>${item.sell_volume}</td>
+                    <td>${item.total_cost}</td>
+                    <td>${item.selling_price}</td>
+                    <td style="color: var(--success-color); font-weight: bold;">${item.net_profit}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    </script>
+</body>
+</html>
